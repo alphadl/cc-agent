@@ -296,10 +296,10 @@ cc-agent/
 
 ## 来源
 
-This project started as [claw-code](https://github.com/instructkr/claw-code), a Python porting workspace that studied the Claude Code harness architecture. The core agent harness (tools, loop, permissions, context) was implemented from scratch in Python, drawing on the architectural patterns of the original TypeScript system.
+本项目最初源于 [claw-code](https://github.com/instructkr/claw-code)：一个用于研究 Claude Code（TypeScript）harness 架构的 Python 移植工作区。核心的 agent harness（工具、循环、权限、上下文管理）均为 Python **从零实现**，并参考了原 TypeScript 系统的架构模式。
 
-- Not affiliated with or endorsed by Anthropic
-- Does not contain any proprietary Anthropic source code
+- **与 Anthropic 无隶属/合作/背书关系**
+- **不包含任何 Anthropic 专有源代码**
 
 ---
 
