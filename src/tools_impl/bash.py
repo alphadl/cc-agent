@@ -32,6 +32,10 @@ class BashTool(Tool):
                 "type": "string",
                 "description": "Shell command to execute.",
             },
+            "cwd": {
+                "type": "string",
+                "description": "Working directory to run the command in (optional).",
+            },
             "timeout": {
                 "type": "integer",
                 "description": f"Timeout in seconds. Default {_DEFAULT_TIMEOUT}.",
@@ -41,7 +45,7 @@ class BashTool(Tool):
     }
     requires_permission = "execute"
 
-    def run(self, command: str, timeout: int = _DEFAULT_TIMEOUT, **_: Any) -> ToolResult:
+    def run(self, command: str, timeout: int = _DEFAULT_TIMEOUT, cwd: str | None = None, **_: Any) -> ToolResult:
         # Warn about obviously dangerous patterns
         lower = command.lower()
         for pat in _DANGER_PATTERNS:
@@ -60,6 +64,7 @@ class BashTool(Tool):
                 text=True,
                 timeout=timeout,
                 env=os.environ.copy(),
+                cwd=cwd,
             )
             stdout = proc.stdout
             stderr = proc.stderr

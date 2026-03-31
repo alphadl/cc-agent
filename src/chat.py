@@ -25,7 +25,7 @@ from typing import Any
 
 # ── Rich Terminal UI ────────────────────────────────────────────────────
 from .terminal_ui import (
-    C, Banner, ContextBar, ThinkingPanel, ToolPanel, MarkdownRenderer,
+    C, Banner, ContextBar, ThinkingPanel, ToolPanel, MarkdownRenderer, _GLYPHS,
     render_markdown as _render_md,
 )
 
@@ -49,13 +49,14 @@ def _render_markdown(text: str) -> None:
 
 def _prompt_permission(tool_name: str, tool_input: dict) -> bool:
     """Ask the user interactively for tool permission. Returns True to allow."""
+    g = _GLYPHS
     desc = ToolPanel._format_input(tool_name, tool_input)
-    print(f"\n  {C.WARNING}⚠  Permission required:{C.RESET} {C.BOLD}{tool_name}{C.RESET}")
+    print(f"\n  {C.WARNING}{g['warn']}  Permission required:{C.RESET} {C.BOLD}{C.TOOL_NAME}{tool_name}{C.RESET}")
     print(f"   {desc}")
-    print(f"   {C.DIM}[y] allow once  [Y] allow for session  [n] deny  [N] deny for session{C.RESET}")
+    print(f"   {C.DIM}[y] once  [Y] session  [n] deny  [N] deny session{C.RESET}")
     while True:
         try:
-            choice = input("   > ").strip()
+            choice = input(f"   {C.ACCENT}{g['arrow_r']}{C.RESET} ").strip()
         except (EOFError, KeyboardInterrupt):
             return False
         if choice in ("y", ""):
@@ -85,6 +86,7 @@ def run_chat(
     from .session import Session
     from .model_registry import get_context_window
     from .mcp_tools import get_mcp_tools
+    from .custom_tools import load_tool_specs
 
     # ── Load config ─────────────────────────────────────────────────────
     cfg = load_config(cwd)
@@ -102,7 +104,15 @@ def run_chat(
     # Build system prompt
     sys_prompt = system or build_system_prompt(cwd)
 
-    # ── MCP integration ─────────────────────────────────────────────────
+    # ── Custom tools + MCP integration ──────────────────────────────────
+    custom_tool_classes: list[type] = []
+    if getattr(cfg, "extra_tools", None):
+        try:
+            custom_tool_classes = load_tool_specs(cfg.extra_tools)
+        except Exception as e:
+            print(f"  {C.ERROR}Custom tool load failed:{C.RESET} {e}")
+            custom_tool_classes = []
+
     mcp_tool_classes, mcp_manager = get_mcp_tools(cwd)
 
     # ── Session ─────────────────────────────────────────────────────────
@@ -113,7 +123,7 @@ def run_chat(
             total_in = sess.total_input_tokens
             total_out = sess.total_output_tokens
             if not print_mode:
-                print(f"  {C.SUCCESS}✓ Resumed session {sess.session_id}{C.RESET}  ({len(messages)} messages)\n")
+                print(f"  {C.SUCCESS}{_GLYPHS['check']} Resumed session {sess.session_id}{C.RESET}  ({len(messages)} messages)\n")
         except FileNotFoundError:
             print(f"  {C.ERROR}Session not found: {resume}{C.RESET}", file=sys.stderr)
             sys.exit(1)
@@ -133,6 +143,8 @@ def run_chat(
         allow_tools=cfg.allow_tools,
         deny_bash_substrings=cfg.deny_bash_substrings,
         allow_bash_prefixes=cfg.allow_bash_prefixes,
+        deny_write_path_prefixes=cfg.deny_write_path_prefixes,
+        allow_write_path_prefixes=cfg.allow_write_path_prefixes,
     )
 
     # ── Banner ──────────────────────────────────────────────────────────
@@ -180,7 +192,7 @@ def run_chat(
             model=current_model,
             system=sys_prompt,
             permissions=perms,
-            extra_tools=mcp_tool_classes if mcp_tool_classes else None,
+            extra_tools=(custom_tool_classes + mcp_tool_classes) if (custom_tool_classes or mcp_tool_classes) else None,
             permission_callback=_permission_callback,
             parallel_tools=cfg.parallel_tools,
             max_tool_iterations=cfg.max_tool_iterations,
@@ -246,17 +258,17 @@ def run_chat(
 
                 # ── Status events ────────────────────────────────────────
                 elif etype == "retry":
-                    print(f"\n  {C.WARNING}↻ Retry {event['attempt']}/{event['max']} "
+                    print(f"\n  {C.WARNING}{_GLYPHS['arrow_r']} Retry {event['attempt']}/{event['max']} "
                           f"in {event['delay']}s: {event['error']}{C.RESET}")
 
                 elif etype == "permission_deny":
-                    print(f"\n  {C.ERROR}✗ Tool denied{C.RESET}: {event.get('reason', '')}")
+                    print(f"\n  {C.ERROR}{_GLYPHS['cross']} Tool denied{C.RESET}: {event.get('reason', '')}")
 
                 elif etype == "compact":
-                    print(f"\n  {C.DIM}{event['message']}{C.RESET}")
+                    print(f"\n  {C.DIM}{_GLYPHS['save']} {event['message']}{C.RESET}")
 
                 elif etype == "error":
-                    print(f"\n{C.ERROR}Error: {event['message']}{C.RESET}")
+                    print(f"\n{C.ERROR}{_GLYPHS['cross']} Error: {event['message']}{C.RESET}")
 
         except KeyboardInterrupt:
             print(f"\n  {C.DIM}[interrupted]{C.RESET}")
@@ -400,6 +412,9 @@ def run_chat(
                     f"    {C.ACCENT}/model <id>{C.RESET}   switch model\n"
                     f"    {C.ACCENT}/tools{C.RESET}        list available agent tools\n"
                     f"    {C.ACCENT}/mcp{C.RESET}          show MCP server status and tools\n"
+                    f"    {C.ACCENT}/rename <title>{C.RESET} name current session\n"
+                    f"    {C.ACCENT}/export [path]{C.RESET} export current session to Markdown\n"
+                    f"    {C.ACCENT}/delete <id>{C.RESET}  delete a saved session\n"
                     f"    {C.ACCENT}/yolo{C.RESET}         toggle auto-approve for all tools\n"
                     f"    {C.ACCENT}/config{C.RESET}       show current config and config file path\n"
                     f"    {C.ACCENT}/history{C.RESET}      show conversation history\n"
@@ -424,8 +439,9 @@ def run_chat(
                     print(f"  {C.BOLD}Saved sessions:{C.RESET}")
                     for s in all_sess[:10]:
                         marker = f"{C.SUCCESS}← current{C.RESET}" if s.session_id == sess.session_id else ""
+                        title = f"  {C.DIM}{s.title}{C.RESET}" if getattr(s, "title", "") else ""
                         print(f"    {C.ACCENT}{s.session_id}{C.RESET}  "
-                              f"{C.DIM}{s.updated_at[:16]}  {s.model}  {len(s.messages)} msgs{C.RESET}  {marker}")
+                              f"{C.DIM}{s.updated_at[:16]}  {s.model}  {len(s.messages)} msgs{C.RESET}{title}  {marker}")
                 continue
 
             elif cmd == "/mcp":
@@ -441,6 +457,42 @@ def run_chat(
                             print(f"    {C.ACCENT}{t.name}{C.RESET}  —  {t.description[:60]}")
                         if len(mcp_manager.all_tools) > 20:
                             print(f"    {C.DIM}... and {len(mcp_manager.all_tools) - 20} more{C.RESET}")
+                continue
+
+            elif cmd == "/rename":
+                if len(parts) < 2 or not parts[1].strip():
+                    print(f"  {C.DIM}Usage: /rename <title>{C.RESET}")
+                    continue
+                sess.title = parts[1].strip()
+                _save_session()
+                print(f"  {C.SUCCESS}✓ Renamed session to:{C.RESET} {sess.title}")
+                continue
+
+            elif cmd == "/export":
+                from .session import Session as _Sess
+                export_path = parts[1].strip() if len(parts) > 1 else f"{sess.session_id}.md"
+                try:
+                    md = sess.export_markdown()
+                    Path(export_path).write_text(md, encoding="utf-8")
+                    print(f"  {C.SUCCESS}✓ Exported to:{C.RESET} {export_path}")
+                except Exception as e:
+                    print(f"  {C.ERROR}Export failed:{C.RESET} {e}")
+                continue
+
+            elif cmd == "/delete":
+                from .session import Session as _Sess
+                target = parts[1].strip() if len(parts) > 1 else ""
+                if not target:
+                    print(f"  {C.DIM}Usage: /delete <session-id>{C.RESET}")
+                    continue
+                if target == sess.session_id:
+                    print(f"  {C.ERROR}Refusing to delete the current session.{C.RESET}")
+                    continue
+                ok = _Sess.delete(target)
+                if ok:
+                    print(f"  {C.SUCCESS}✓ Deleted session:{C.RESET} {target}")
+                else:
+                    print(f"  {C.ERROR}Session not found:{C.RESET} {target}")
                 continue
 
             else:

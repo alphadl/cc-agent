@@ -48,6 +48,14 @@ class GrepTool(Tool):
                 "type": "integer",
                 "description": "Lines of context around each match (content mode only).",
             },
+            "head_limit": {
+                "type": "integer",
+                "description": "Maximum number of output lines to return (after offset). Default 200.",
+            },
+            "offset": {
+                "type": "integer",
+                "description": "Skip the first N output lines (for pagination). Default 0.",
+            },
         },
         "required": ["pattern"],
     }
@@ -61,13 +69,15 @@ class GrepTool(Tool):
         output_mode: str = "files_with_matches",
         case_insensitive: bool = False,
         context: int = 0,
+        head_limit: int = 200,
+        offset: int = 0,
         **_: Any,
     ) -> ToolResult:
         search_path = path or str(Path.cwd())
 
         if shutil.which("rg"):
-            return self._rg(pattern, search_path, glob, output_mode, case_insensitive, context)
-        return self._python_grep(pattern, search_path, glob, output_mode, case_insensitive, context)
+            return self._rg(pattern, search_path, glob, output_mode, case_insensitive, context, head_limit, offset)
+        return self._python_grep(pattern, search_path, glob, output_mode, case_insensitive, context, head_limit, offset)
 
     def _rg(
         self,
@@ -77,6 +87,8 @@ class GrepTool(Tool):
         output_mode: str,
         case_insensitive: bool,
         context: int,
+        head_limit: int,
+        offset: int,
     ) -> ToolResult:
         cmd = ["rg", pattern, path]
         if case_insensitive:
@@ -96,9 +108,14 @@ class GrepTool(Tool):
             output = result.stdout.strip()
             if not output:
                 return ToolResult(f"No matches for '{pattern}'")
-            lines = output.splitlines()[:_MAX_LINES]
+            all_lines = output.splitlines()
+            start = max(0, int(offset or 0))
+            limit = max(1, int(head_limit or 200))
+            lines = all_lines[start:start + min(limit, _MAX_LINES)]
             text = "\n".join(lines)
-            if len(output.splitlines()) > _MAX_LINES:
+            if start + limit < len(all_lines):
+                text += f"\n[More results available. offset={start + limit}]"
+            if len(lines) >= _MAX_LINES:
                 text += f"\n[Truncated at {_MAX_LINES} lines]"
             return ToolResult(text)
         except subprocess.TimeoutExpired:
@@ -114,6 +131,8 @@ class GrepTool(Tool):
         output_mode: str,
         case_insensitive: bool,
         context: int,
+        head_limit: int,
+        offset: int,
     ) -> ToolResult:
         flags = re.IGNORECASE if case_insensitive else 0
         try:
@@ -153,4 +172,10 @@ class GrepTool(Tool):
 
         if not results:
             return ToolResult(f"No matches for '{pattern}'")
-        return ToolResult("\n".join(results[:_MAX_LINES]))
+        start = max(0, int(offset or 0))
+        limit = max(1, int(head_limit or 200))
+        page = results[start:start + min(limit, _MAX_LINES)]
+        text = "\n".join(page)
+        if start + limit < len(results):
+            text += f"\n[More results available. offset={start + limit}]"
+        return ToolResult(text)

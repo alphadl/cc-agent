@@ -65,6 +65,8 @@ class PermissionSystem:
         allow_tools: list[str] | None = None,
         deny_bash_substrings: list[str] | None = None,
         allow_bash_prefixes: list[str] | None = None,
+        deny_write_path_prefixes: list[str] | None = None,
+        allow_write_path_prefixes: list[str] | None = None,
     ):
         self.auto_approve_reads = auto_approve_reads
         self.auto_approve_writes = auto_approve_writes
@@ -75,6 +77,8 @@ class PermissionSystem:
         self._allow_tools_cfg = {t.strip() for t in (allow_tools or []) if t and t.strip()}
         self._deny_bash_substrings_cfg = [s.lower() for s in (deny_bash_substrings or []) if s]
         self._allow_bash_prefixes_cfg = [s for s in (allow_bash_prefixes or []) if s]
+        self._deny_write_path_prefixes_cfg = [s for s in (deny_write_path_prefixes or []) if s]
+        self._allow_write_path_prefixes_cfg = [s for s in (allow_write_path_prefixes or []) if s]
 
         # Persistent approvals granted during this session
         self._session_allowed: set[str] = set()
@@ -105,6 +109,40 @@ class PermissionSystem:
 
         if tool_name in self._allow_tools_cfg:
             return HookResult(allow=True)
+
+        # Path-based write guards (Write/Edit/Patch)
+        if _TOOL_PERMISSION_LEVEL.get(tool_name) == PermissionLevel.WRITE:
+            raw = tool_input.get("file_path") or tool_input.get("path") or ""
+            if raw:
+                try:
+                    import os as _os
+                    expanded = _os.path.expanduser(str(raw))
+                    abspath = _os.path.abspath(expanded)
+                except Exception:
+                    abspath = str(raw)
+
+                for prefix in self._deny_write_path_prefixes_cfg:
+                    try:
+                        import os as _os
+                        pfx = _os.path.abspath(_os.path.expanduser(prefix))
+                    except Exception:
+                        pfx = prefix
+                    if abspath.startswith(pfx):
+                        return HookResult(allow=False, reason=f"write denied by config path prefix: {prefix}")
+
+                if self._allow_write_path_prefixes_cfg:
+                    ok = False
+                    for prefix in self._allow_write_path_prefixes_cfg:
+                        try:
+                            import os as _os
+                            pfx = _os.path.abspath(_os.path.expanduser(prefix))
+                        except Exception:
+                            pfx = prefix
+                        if abspath.startswith(pfx):
+                            ok = True
+                            break
+                    if not ok:
+                        return HookResult(allow=False, reason="write denied: path not in allow_write_path_prefixes")
 
         if tool_name in self._always_deny:
             return HookResult(allow=False, reason=f"{tool_name} is denied for this session")

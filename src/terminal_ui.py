@@ -381,46 +381,72 @@ class MarkdownRenderer:
 # ── Tool Output Panel ────────────────────────────────────────────────────
 
 class ToolPanel:
-    """Renders tool execution panels with status icons and collapsible output."""
+    """Renders tool execution panels with compact tool markers."""
+
+    # Tool-specific markers (ASCII-safe)
+    _TOOL_ICONS = {
+        "Read":     "[R]",
+        "ReadMany": "[RM]",
+        "Write":    "[W]",
+        "Edit":     "[E]",
+        "Patch":    "[P]",
+        "Glob":     "[GLOB]",
+        "Grep":     "[GREP]",
+        "Bash":     "[$]",
+        "Git":      "[GIT]",
+        "WebFetch": "[WEB]",
+    }
+
+    @staticmethod
+    def _icon_for(name: str) -> str:
+        return ToolPanel._TOOL_ICONS.get(name, "[TOOL]")
 
     @staticmethod
     def start(name: str, tool_input: dict) -> str:
         """Render a tool-start panel."""
-        icon = f"{C.TOOL_NAME}⚙{C.RESET}"
+        icon = ToolPanel._icon_for(name)
         desc = ToolPanel._format_input(name, tool_input)
-        return f"\n  {icon} {C.BOLD}{name}{C.RESET}  {C.DIM}{desc}{C.RESET}"
+        return (
+            f"\n  {C.DIM}{_GLYPHS['elbow']}{_GLYPHS['hline'] * 2}{C.RESET} "
+            f"{C.BOLD}{C.TOOL_NAME}{name}{C.RESET}  "
+            f"{icon}  "
+            f"{C.DIM}{desc}{C.RESET}"
+        )
 
     @staticmethod
     def result(name: str, result: str, is_error: bool = False,
                preview_chars: int = 200) -> str:
         """Render a tool-result panel."""
         if is_error:
-            icon = f"{C.ERROR}✗{C.RESET}"
-            label = f"{C.ERROR}Error{C.RESET}"
+            icon = f"{C.ERROR}{_GLYPHS['cross']}{C.RESET}"
+            label = f"{C.ERROR}FAILED{C.RESET}"
         else:
-            icon = f"{C.SUCCESS}✓{C.RESET}"
-            label = f"{C.SUCCESS}Done{C.RESET}"
+            icon = f"{C.SUCCESS}{_GLYPHS['check']}{C.RESET}"
+            label = f"{C.SUCCESS}OK{C.RESET}"
 
         preview = result.replace("\n", " ")[:preview_chars] if result else ""
-        return f"  {icon} {label}  {C.DIM}{preview}{C.RESET}"
+        return (
+            f"  {C.DIM}{_GLYPHS['corner']}{_GLYPHS['hline'] * 2}{C.RESET} "
+            f"{icon} {label}  "
+            f"{C.DIM}{preview}{C.RESET}"
+        )
 
     @staticmethod
     def full_output(name: str, result: str, is_error: bool = False) -> str:
         """Render a full tool output panel with border."""
         border_color = C.ERROR if is_error else C.DIM
-        border_char = "═"
         width = get_terminal_width() - 4
 
         lines = [
-            f"  {border_color}{border_char}{'═' * width}{C.RESET}",
+            f"  {border_color}╔{'═' * width}╗{C.RESET}",
             f"  {border_color}║{C.RESET} {C.BOLD}{name} output:{C.RESET}",
-            f"  {border_color}╟{'─' * width}{C.RESET}",
+            f"  {border_color}╠{'═' * width}╣{C.RESET}",
         ]
         for line in result.split("\n")[:50]:
             lines.append(f"  {border_color}║{C.RESET} {line}")
         if result.count("\n") > 50:
             lines.append(f"  {border_color}║{C.RESET} {C.DIM}... ({result.count(chr(10))} total lines){C.RESET}")
-        lines.append(f"  {border_color}{border_char}{'═' * width}{C.RESET}")
+        lines.append(f"  {border_color}╚{'═' * width}╝{C.RESET}")
         return "\n".join(lines)
 
     @staticmethod
@@ -451,21 +477,25 @@ class ToolPanel:
 class ThinkingPanel:
     """Renders thinking/reasoning output with animated indicator."""
 
+    _spinner = Spinner("dots")
+
     @staticmethod
     def start() -> str:
-        return f"\n  {C.THINKING}💭 Thinking{C.RESET}{' ' * 20}"
+        return f"\n  {C.THINKING}{_GLYPHS['think']} Thinking{C.RESET}{' ' * 20}"
 
     @staticmethod
     def progress() -> str:
-        """Return progress dots (to be used with \r)."""
-        return f"  {C.THINKING}💭 Thinking{C.DIM}...{C.RESET}"
+        """Return animated progress frame (to be used with \r)."""
+        frame = ThinkingPanel._spinner.tick()
+        return f"\r  {C.THINKING}{frame} Thinking{C.DIM}⋯{C.RESET}   "
 
     @staticmethod
     def done(thinking_text: str) -> str:
         char_count = len(thinking_text)
         word_count = len(thinking_text.split())
+        ThinkingPanel._spinner.reset()
         return (
-            f"\r\033[K  {C.THINKING}💭 Thought{C.RESET} "
+            f"\r\033[K  {C.THINKING}{_GLYPHS['think']} Thought{C.RESET} "
             f"{C.DIM}({char_count:,} chars, ~{word_count} words){C.RESET}"
         )
 
@@ -473,7 +503,7 @@ class ThinkingPanel:
 # ── Context Bar ──────────────────────────────────────────────────────────
 
 class ContextBar:
-    """Renders the context window usage bar."""
+    """Renders the context window usage bar with gradient fill."""
 
     @staticmethod
     def render(used_tokens: int, total_tokens: int, model: str = "",
@@ -483,59 +513,195 @@ class ContextBar:
         bar_len = 30
         filled = int(bar_len * min(pct, 100) / 100)
 
+        # Gradient colors: green → yellow → red
         if pct < 50:
             color = C.SUCCESS
+            shade = C.GREEN
         elif pct < 75:
             color = C.WARNING
+            shade = C.YELLOW
         else:
             color = C.ERROR
+            shade = C.RED
 
-        bar = f"{color}{'█' * filled}{C.DIM}{'░' * (bar_len - filled)}{C.RESET}"
+        # Build bar with a "head" marker
+        if filled > 0:
+            bar = f"{color}{_GLYPHS['block'] * (filled - 1)}{shade}{_GLYPHS['block']}{C.DIM}{_GLYPHS['shade'] * (bar_len - filled)}{C.RESET}"
+        else:
+            bar = f"{C.DIM}{_GLYPHS['shade'] * bar_len}{C.RESET}"
 
         parts = [
-            f"  {C.DIM}Context:{C.RESET} [{bar}] {pct:.0f}%",
-            f"~{used_tokens:,}/{total_tokens:,}",
+            f"  {C.ACCENT}┃{C.RESET} {C.BOLD}{model}{C.RESET}  "
+            if model else "",
+            f"[{bar}] {pct:.0f}%",
+            f"{C.DIM}{used_tokens:,}/{total_tokens:,}{C.RESET}",
         ]
-        if model:
-            parts.insert(0, f"{C.BOLD}{model}{C.RESET}")
         if input_tokens or output_tokens:
-            parts.append(f"in:{input_tokens:,} out:{output_tokens:,}")
+            parts.append(f"{C.DIM}↑{input_tokens:,} ↓{output_tokens:,}{C.RESET}")
+        if message_count:
+            parts.append(f"{C.DIM}msgs:{message_count}{C.RESET}")
         if session_id:
-            parts.append(f"{C.DIM}{session_id}{C.RESET}")
+            parts.append(f"{C.DIM}{_GLYPHS['link']} {session_id[:8]}{C.RESET}")
 
-        return "  ".join(parts)
+        return "  ".join(p for p in parts if p)
+
+
+# ── ASCII Art Logo ───────────────────────────────────────────────────────
+
+_CC_LOGO = r"""
+   ██████╗██╗   ██╗██████╗ ███████╗██████╗
+  ██╔════╝╚██╗ ██╔╝██╔══██╗██╔════╝██╔══██╗
+  ██║      ╚████╔╝ ██████╔╝█████╗  ██████╔╝
+  ██║       ╚██╔╝  ██╔══██╗██╔══╝  ██╔══██╗
+  ╚██████╗   ██║   ██████╔╝███████╗██║  ██║
+   ╚═════╝   ╚═╝   ╚═════╝ ╚══════╝╚═╝  ╚═╝
+            ███╗   ██╗███████╗██╗██╗  ████████╗██████╗
+            ████╗  ██║██╔════╝██║██║  ╚══██╔══╝██╔══██╗
+            ██╔██╗ ██║█████╗  ██║██║     ██║   ██████╔╝
+            ██║╚██╗██║██╔══╝  ██║██║     ██║   ██╔══██╗
+            ██║ ╚████║███████╗██║███████╗██║   ██║  ██║
+            ╚═╝  ╚═══╝╚══════╝╚═╝╚══════╝╚═╝   ╚═╝  ╚═╝
+"""
+
+# Compact fallback logo for narrow terminals
+_CC_LOGO_COMPACT = r"""
+  ┌─┐┌─┐┌┐ ╔╦╗╔═╗╦  ╔═╗╦ ╦  ┌──┐┌─┐
+  ├┤ │ │├┴┐ ║ ║  ║  ║ ╦╠═╣  │  │├┤
+  └  └─┘└─┘ ╩ ╚═╝╚═╝╚═╝╩ ╩  └─┘└
+"""
+
+_GLYPHS = {
+    "arrow":    "➜",
+    "bullet":   "●",
+    "diamond":  "◆",
+    "check":    "✔",
+    "cross":    "✘",
+    "warn":     "⚠",
+    "gear":     "⚙",
+    "bolt":     "⚡",
+    "link":     "🔗",
+    "lock":     "🔒",
+    "rocket":   "🚀",
+    "terminal": "▶",
+    "think":    "🧠",
+    "save":     "💾",
+    "tool":     "🛠",
+    "fire":     "🔥",
+    "star":     "✦",
+    "dot":      "•",
+    "pipe":     "│",
+    "elbow":    "├",
+    "corner":   "└",
+    "tee":      "┬",
+    "hline":    "─",
+    "vline":    "│",
+    "box_tl":   "╭",
+    "box_tr":   "╮",
+    "box_bl":   "╰",
+    "box_br":   "╯",
+    "box_t":    "┬",
+    "box_b":    "┴",
+    "box_x":    "┼",
+    "box_h":    "─",
+    "block":    "█",
+    "shade":    "░",
+    "dark":     "▓",
+    "arrow_r":  "→",
+    "arrow_l":  "←",
+    "arrow_d":  "↓",
+    "arrow_u":  "↑",
+    "dbl_arrow": "⟫",
+    "ellipsis": "⋯",
+    "ruler":    "┄",
+}
+
+
+# ── Spinner (frame cycling) ─────────────────────────────────────────────
+
+class Spinner:
+    """ANSI spinner for tool execution / thinking progress."""
+
+    _FRAMES_BRAILLE = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+    _FRAMES_DOTS    = ["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"]
+    _FRAMES_ARROWS  = ["←", "↖", "↑", "↗", "→", "↘", "↓", "↙"]
+    _FRAMES_BOX     = ["▏", "▎", "▍", "▌", "▋", "▊", "▉", "█"]
+    _FRAMES_CLASSIC = ["/", "-", "\\", "|"]
+
+    STYLES = {"braille": _FRAMES_BRAILLE, "dots": _FRAMES_DOTS,
+              "arrows": _FRAMES_ARROWS, "box": _FRAMES_BOX, "classic": _FRAMES_CLASSIC}
+
+    def __init__(self, style: str = "braille"):
+        self._frames = self.STYLES.get(style, self._FRAMES_BRAILLE)
+        self._i = 0
+
+    def tick(self) -> str:
+        frame = self._frames[self._i % len(self._frames)]
+        self._i += 1
+        return frame
+
+    def reset(self) -> None:
+        self._i = 0
 
 
 # ── Banner ───────────────────────────────────────────────────────────────
 
 class Banner:
-    """Startup banner for the agent REPL."""
+    """Startup banner for the agent REPL — hacker-style ASCII art."""
+
+    @staticmethod
+    def _pick_logo() -> str:
+        width = get_terminal_width()
+        if width >= 80:
+            return _CC_LOGO
+        return _CC_LOGO_COMPACT
 
     @staticmethod
     def render(provider: str, model: str, cwd: str, yolo: bool,
                context_window: int = 0, mcp_status: str = "") -> str:
-        width = 71
-        border_top = f"{C.ACCENT}╭─ cc-agent {'─' * (width - 10)}╮{C.RESET}"
-        border_bottom = f"{C.ACCENT}╰{'─' * (width + 2)}╯{C.RESET}"
+        g = _GLYPHS
+        logo = Banner._pick_logo()
 
-        def row(text: str) -> str:
-            visible = C.strip(text)
-            pad = width - len(visible)
-            return f"{C.ACCENT}│{C.RESET}{text}{' ' * pad}{C.ACCENT}│{C.RESET}"
+        # Color the logo lines with gradient effect
+        logo_lines = []
+        for i, line in enumerate(logo.split("\n")):
+            if not line.strip():
+                continue
+            logo_lines.append(f"{C.DIM}{line}{C.RESET}")
 
-        lines = [
-            border_top,
-            row(f"  Provider: {C.GREEN}{provider}{C.RESET}  •  Model: {C.BOLD}{model}{C.RESET}"
-                + (f"  {C.YELLOW}⚡ YOLO{C.RESET}" if yolo else "")),
-            row(f"  cwd: {C.DIM}{cwd}{C.RESET}"),
+        width = min(get_terminal_width(), 100)
+        sep = f"{C.DIM}{g['ruler'] * width}{C.RESET}"
+
+        # Build info rows
+        yolo_tag = f"  {C.YELLOW}{g['bolt']} YOLO{C.RESET}" if yolo else ""
+        info_lines = [
+            f"  {C.ACCENT}{g['diamond']} Provider{C.RESET}  {C.GREEN}{provider}{C.RESET}"
+            f"    {C.ACCENT}{g['diamond']} Model{C.RESET}     {C.BOLD}{model}{C.RESET}{yolo_tag}",
+            f"  {C.ACCENT}{g['diamond']} Cwd{C.RESET}      {C.DIM}{cwd}{C.RESET}",
         ]
         if context_window:
-            lines.append(row(f"  Context: {C.DIM}{context_window:,} tokens{C.RESET}"))
+            info_lines.append(
+                f"  {C.ACCENT}{g['diamond']} Context{C.RESET}   {C.DIM}{context_window:,} tokens{C.RESET}"
+            )
         if mcp_status:
-            lines.append(row(f"  {mcp_status}"))
+            info_lines.append(f"  {C.ACCENT}{g['diamond']} MCP{C.RESET}      {mcp_status}")
 
-        lines.append(row(f"  {C.DIM}/help for commands  •  Ctrl-C to interrupt  •  /exit to quit{C.RESET}"))
-        lines.append(border_bottom)
+        # Footer
+        footer = (
+            f"  {C.DIM}{g['arrow_r']} /help  commands  "
+            f"{g['arrow_r']} Ctrl-C  interrupt  "
+            f"{g['arrow_r']} /exit  quit{C.RESET}"
+        )
+
+        lines = [
+            "",
+            *logo_lines,
+            "",
+            sep,
+            *info_lines,
+            sep,
+            footer,
+            "",
+        ]
         return "\n".join(lines)
 
 

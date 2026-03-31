@@ -39,6 +39,11 @@ class Config:
     allow_tools: list[str] = field(default_factory=list)         # always allow these tools
     deny_bash_substrings: list[str] = field(default_factory=list)  # e.g. ["git push", "rm -rf"]
     allow_bash_prefixes: list[str] = field(default_factory=list)   # e.g. ["pytest", "git status", "rg "]
+    deny_write_path_prefixes: list[str] = field(default_factory=list)  # e.g. ["/etc/", "~/.ssh/"]
+    allow_write_path_prefixes: list[str] = field(default_factory=list) # if non-empty, writes must match one
+
+    # Custom tools
+    extra_tools: list[str] = field(default_factory=list)  # e.g. ["my_tools:MyTool", "my_pkg.tools"]
 
     # ── Agent loop ─────────────────────────────────────────────────────
     parallel_tools: bool = True          # run independent tool calls concurrently

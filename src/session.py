@@ -21,6 +21,7 @@ class Session:
     total_input_tokens: int = 0
     total_output_tokens: int = 0
     cwd: str = ""
+    title: str = ""
 
     @classmethod
     def new(cls, model: str, provider: str, cwd: str = "") -> "Session":
@@ -66,3 +67,51 @@ class Session:
             except Exception:
                 pass
         return sessions
+
+    @classmethod
+    def delete(cls, session_id: str) -> bool:
+        path = _SESSIONS_DIR / f"{session_id}.json"
+        if not path.exists():
+            matches = list(_SESSIONS_DIR.glob(f"{session_id}*.json"))
+            if not matches:
+                return False
+            path = matches[0]
+        try:
+            path.unlink()
+            return True
+        except Exception:
+            return False
+
+    def export_markdown(self) -> str:
+        lines: list[str] = []
+        header = self.title or f"Session {self.session_id}"
+        lines.append(f"# {header}")
+        lines.append("")
+        lines.append(f"- id: `{self.session_id}`")
+        if self.model:
+            lines.append(f"- model: `{self.model}`")
+        if self.provider:
+            lines.append(f"- provider: `{self.provider}`")
+        if self.cwd:
+            lines.append(f"- cwd: `{self.cwd}`")
+        lines.append(f"- created_at: `{self.created_at}`")
+        lines.append(f"- updated_at: `{self.updated_at}`")
+        lines.append("")
+
+        for m in self.messages:
+            role = (m.get("role") or "").upper()
+            content = m.get("content", "")
+            lines.append(f"## {role}")
+            lines.append("")
+            if isinstance(content, str):
+                lines.append(content)
+            else:
+                lines.append("```json")
+                try:
+                    lines.append(json.dumps(content, ensure_ascii=False, indent=2))
+                except Exception:
+                    lines.append(str(content))
+                lines.append("```")
+            lines.append("")
+
+        return "\n".join(lines).rstrip() + "\n"

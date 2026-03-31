@@ -23,6 +23,7 @@
 
 ## 功能特性
 
+- **零编译零安装**：`git clone` → 装依赖 → `./cc` 直接运行，纯 Python 脚本，无需 `pip install .`
 - **真实的 agentic loop**：模型调用工具 → 看结果 → 继续推进直到完成
 - **10 个核心工具**：Read, ReadMany, Write, Edit, Patch, Glob, Grep, Bash, Git, WebFetch
 - **权限系统**：交互式审批、YOLO 模式、会话内授权
@@ -168,6 +169,8 @@ You can also add **fine-grained rules** in config:
 - **deny_tools/allow_tools**：按工具名全局拒绝/放行（如 `"Bash"`）
 - **deny_bash_substrings**：Bash 命令包含某些子串就拒绝（如 `"git push"`）
 - **allow_bash_prefixes**：Bash 命令以某些前缀开头则自动放行（如 `"pytest"`）
+- **deny_write_path_prefixes**：写/改/patch 指定路径前缀直接拒绝（如 `"~/.ssh/"`、`"/etc/"`）
+- **allow_write_path_prefixes**：如果非空，则写/改/patch 仅允许这些前缀内的路径
 
 Interactive prompt for Bash calls:
 ```
@@ -207,6 +210,9 @@ Key options (with defaults):
   "allow_tools": [],
   "deny_bash_substrings": [],
   "allow_bash_prefixes": [],
+  "deny_write_path_prefixes": [],
+  "allow_write_path_prefixes": [],
+  "extra_tools": [],
   "parallel_tools": true,
   "render_markdown": true,
   "stream_dots": true,

@@ -29,12 +29,23 @@ class GlobTool(Tool):
                 "type": "string",
                 "description": "Directory to search in. Defaults to current working directory.",
             },
+            "exclude": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Optional glob patterns to exclude (matched against full path).",
+            },
         },
         "required": ["pattern"],
     }
     requires_permission = "read"
 
-    def run(self, pattern: str, path: str | None = None, **_: Any) -> ToolResult:
+    def run(
+        self,
+        pattern: str,
+        path: str | None = None,
+        exclude: list[str] | None = None,
+        **_: Any,
+    ) -> ToolResult:
         base = Path(path) if path else Path.cwd()
         if not base.exists():
             return ToolResult(f"Directory not found: {base}", is_error=True)
@@ -48,7 +59,17 @@ class GlobTool(Tool):
         except Exception as e:
             return ToolResult(str(e), is_error=True)
 
-        files = [p for p in matches if p.is_file()][:_MAX_RESULTS]
+        exclude = exclude or []
+        files: list[Path] = []
+        for p in matches:
+            if not p.is_file():
+                continue
+            sp = str(p)
+            if any(fnmatch.fnmatch(sp, pat) for pat in exclude):
+                continue
+            files.append(p)
+            if len(files) >= _MAX_RESULTS:
+                break
 
         if not files:
             return ToolResult(f"No files matched pattern '{pattern}' in {base}")

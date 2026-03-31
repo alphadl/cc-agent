@@ -25,13 +25,22 @@ class WriteTool(Tool):
                 "type": "string",
                 "description": "Content to write to the file.",
             },
+            "allow_overwrite": {
+                "type": "boolean",
+                "description": "If true, allows overwriting an existing file. Default false.",
+            },
         },
         "required": ["file_path", "content"],
     }
     requires_permission = "write"
 
-    def run(self, file_path: str, content: str, **_: Any) -> ToolResult:
+    def run(self, file_path: str, content: str, allow_overwrite: bool = False, **_: Any) -> ToolResult:
         path = Path(file_path)
+        if path.exists() and not allow_overwrite:
+            return ToolResult(
+                f"Refusing to overwrite existing file without allow_overwrite=true: {file_path}",
+                is_error=True,
+            )
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content, encoding="utf-8")
