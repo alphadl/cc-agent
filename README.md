@@ -1,11 +1,7 @@
 # cc-agent
 
 <p align="center">
-  <img src="assets/clawd-hero.jpeg" alt="cc-agent" width="300" />
-</p>
-
-<p align="center">
-  <strong>A real Python agentic harness for Claude — not just an archive</strong>
+  <strong>Python 原生的 Claude Code 风格 Agent CLI（不只是资料归档）</strong>
 </p>
 
 <p align="center">
