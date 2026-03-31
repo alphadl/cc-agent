@@ -15,9 +15,7 @@
 
 ---
 
-## cc-agent 是什么？ / What is cc-agent?
-
-**中文**
+## cc-agent 是什么？
 
 **cc-agent** 是一个 Python 原生的 “Claude Code 风格” agent harness：为模型提供真实可用的工具（读/写/编辑/搜索/执行命令/抓取网页等），并在一个 agentic loop 里不断调用工具直到把任务完成。
 
@@ -25,19 +23,9 @@
 
 > **cc** = Claude Code。 **agent** = 它真的会动手做事。
 
-**English**
-
-**cc-agent** is a Python-native Claude Code–style agent harness. It gives the model real tools to read, write, edit, search, execute commands, and fetch web pages — then loops until the task is done.
-
-Inspired by architectural patterns in Anthropic's Claude Code (TypeScript), reimplemented cleanly in Python with some improvements.
-
-> **cc** = Claude Code. **agent** = it actually does things.
-
 ---
 
-## 功能特性 / Features
-
-**中文**
+## 功能特性
 
 - **真实的 agentic loop**：模型调用工具 → 看结果 → 继续推进直到完成
 - **10 个核心工具**：Read, ReadMany, Write, Edit, Patch, Glob, Grep, Bash, Git, WebFetch
@@ -51,25 +39,11 @@ Inspired by architectural patterns in Anthropic's Claude Code (TypeScript), reim
 - **配置系统**：`~/.cc-agent/config.json`、`.cc-agent.json`、环境变量分层覆盖
 - **Slash 命令**：`/clear` `/compact` `/context` `/model` `/tools` `/config` `/yolo` `/help`
 
-**English**
-
-- **Real agentic loop** — model calls tools, sees results, keeps going until done
-- **10 core tools** — Read, ReadMany, Write, Edit, Patch, Glob, Grep, Bash, Git, WebFetch
-- **Permission system** — interactive approval, YOLO mode, per-session grants
-- **Three-tier context** — loads `~/.claude/CLAUDE.md` → project → cwd automatically
-- **Auto-compaction** — summarizes old messages when context window fills up
-- **Multi-provider** — Anthropic, OpenRouter, or any OpenAI-compatible endpoint
-- **Parallel tools** — independent tool calls run concurrently for speed
-- **Streaming REPL** — colored output, live tool execution display, Markdown rendering
-- **Session persistence** — resume any past conversation with `--resume`
-- **Config system** — layered config via `~/.cc-agent/config.json`, `.cc-agent.json`, or env vars
-- **Slash commands** — `/clear` `/compact` `/context` `/model` `/tools` `/config` `/yolo` `/help`
-
 ---
 
-## 快速开始 / Quickstart
+## 快速开始
 
-### Anthropic（默认）/ Anthropic (default)
+### Anthropic（默认）
 
 ```bash
 git clone https://github.com/alphadl/cc-agent.git
@@ -79,7 +53,7 @@ export ANTHROPIC_API_KEY=sk-ant-...
 ./cc
 ```
 
-如果你使用 [uv](https://github.com/astral-sh/uv)，启动脚本会自动检测 venv。/ If you use [uv](https://github.com/astral-sh/uv), the launcher auto-detects the venv:
+如果你使用 [uv](https://github.com/astral-sh/uv)，启动脚本会自动检测 venv：
 
 ```bash
 uv venv && uv pip install anthropic rich
@@ -88,8 +62,7 @@ uv venv && uv pip install anthropic rich
 
 ### OpenRouter
 
-中文：可使用 [openrouter.ai/models](https://openrouter.ai/models) 上的任意模型（Claude / GPT-4o / Gemini / Qwen / DeepSeek 等）。  
-English: Use any model from [openrouter.ai/models](https://openrouter.ai/models) — Claude, GPT-4o, Gemini, Qwen, DeepSeek, and more.
+可使用 [openrouter.ai/models](https://openrouter.ai/models) 上的任意模型（Claude / GPT-4o / Gemini / Qwen / DeepSeek 等）。
 
 ```bash
 pip install openai rich
@@ -97,8 +70,7 @@ export OPENROUTER_API_KEY=sk-or-...
 ./cc
 ```
 
-中文：设置 `OPENROUTER_API_KEY` 后，`--model` 直接使用 OpenRouter 目录里的 model id。  
-English: Once `OPENROUTER_API_KEY` is set, just pass the model ID as-is from the OpenRouter catalog:
+设置 `OPENROUTER_API_KEY` 后，`--model` 直接使用 OpenRouter 目录里的 model id：
 
 ```bash
 ./cc --model qwen/qwen3-235b-a22b
@@ -108,14 +80,13 @@ English: Once `OPENROUTER_API_KEY` is set, just pass the model ID as-is from the
 ./cc --model deepseek/deepseek-r1
 ```
 
-中文：也可以使用 `openrouter/` 前缀强制走 OpenRouter（即使没有 env var）。  
-English: You can also use the `openrouter/` prefix to force OpenRouter even without the env var:
+也可以使用 `openrouter/` 前缀强制走 OpenRouter（即使没有 env var）：
 
 ```bash
 ./cc --model openrouter/qwen/qwen3-235b-a22b
 ```
 
-### OpenAI-compatible（Groq/Together/本地等）/ OpenAI-compatible (Groq, Together, local, etc.)
+### OpenAI-compatible（Groq/Together/本地等）
 
 ```bash
 pip install openai rich
@@ -126,7 +97,7 @@ export OPENAI_BASE_URL=https://api.groq.com/openai/v1
 
 ---
 
-## 使用方法 / Usage
+## 使用方法
 
 ```bash
 ./cc                                     # start interactive agent session
@@ -138,7 +109,7 @@ export OPENAI_BASE_URL=https://api.groq.com/openai/v1
 ./cc --resume <session-id>               # resume a previous session
 ```
 
-### Provider 自动选择 / Provider detection (automatic)
+### Provider 自动选择
 
 | Condition | Provider used |
 |-----------|---------------|
@@ -147,10 +118,9 @@ export OPENAI_BASE_URL=https://api.groq.com/openai/v1
 | `OPENAI_API_KEY` or `OPENAI_BASE_URL` is set | OpenAI-compatible |
 | otherwise | Anthropic |
 
-中文：设置 `OPENROUTER_API_KEY` 后，**不需要** `openrouter/` 前缀，直接使用 OpenRouter 目录里的 model id。  
-English: When `OPENROUTER_API_KEY` is set, you do **not** need the `openrouter/` prefix — just use model IDs directly from the OpenRouter catalog.
+设置 `OPENROUTER_API_KEY` 后，**不需要** `openrouter/` 前缀，直接使用 OpenRouter 目录里的 model id。
 
-### Slash 命令 / Slash commands
+### Slash 命令
 
 | Command | Description |
 |---------|-------------|
@@ -168,7 +138,7 @@ English: When `OPENROUTER_API_KEY` is set, you do **not** need the `openrouter/`
 
 ---
 
-## 工具列表 / Tools
+## 工具列表
 
 | Tool | Description |
 |------|-------------|
@@ -185,7 +155,7 @@ English: When `OPENROUTER_API_KEY` is set, you do **not** need the `openrouter/`
 
 ---
 
-## 权限系统 / Permission System
+## 权限系统
 
 Default behavior (configurable via `~/.cc-agent/config.json`):
 
@@ -198,8 +168,6 @@ You can also add **fine-grained rules** in config:
 - **deny_tools / allow_tools** — always deny/allow specific tools
 - **deny_bash_substrings** — deny Bash commands containing substrings (e.g. `"git push"`)
 - **allow_bash_prefixes** — auto-allow Bash commands with specific prefixes (e.g. `"pytest"`, `"git status"`)
-
-中文说明：
 
 - **deny_tools/allow_tools**：按工具名全局拒绝/放行（如 `"Bash"`）
 - **deny_bash_substrings**：Bash 命令包含某些子串就拒绝（如 `"git push"`）
@@ -217,7 +185,7 @@ Skip all prompts with `--yolo` or `/yolo` inside the session.
 
 ---
 
-## 配置系统 / Config System
+## 配置系统
 
 Settings are loaded in order (later overrides earlier):
 
@@ -262,7 +230,7 @@ CC_AGENT_MODEL=qwen/qwen3-235b-a22b CC_AGENT_YOLO=true ./cc
 
 ---
 
-## 上下文管理（CLAUDE.md）/ Context Management (CLAUDE.md)
+## 上下文管理（CLAUDE.md）
 
 cc-agent loads instructions from three locations, in order:
 
@@ -283,7 +251,7 @@ Create a `CLAUDE.md` in your project to give the agent persistent context:
 
 ---
 
-## 会话持久化 / Session Persistence
+## 会话持久化
 
 Every conversation is auto-saved to `~/.cc-agent/sessions/<id>.json`.
 
@@ -295,7 +263,7 @@ List sessions inside a running session with `/sessions`.
 
 ---
 
-## 项目结构 / Project Layout
+## 项目结构
 
 ```
 cc-agent/
@@ -326,7 +294,7 @@ cc-agent/
 
 ---
 
-## 来源 / Origin
+## 来源
 
 This project started as [claw-code](https://github.com/instructkr/claw-code), a Python porting workspace that studied the Claude Code harness architecture. The core agent harness (tools, loop, permissions, context) was implemented from scratch in Python, drawing on the architectural patterns of the original TypeScript system.
 
@@ -335,6 +303,6 @@ This project started as [claw-code](https://github.com/instructkr/claw-code), a 
 
 ---
 
-## 许可证 / License
+## 许可证
 
 MIT
