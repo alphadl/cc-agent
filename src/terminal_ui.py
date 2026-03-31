@@ -90,6 +90,53 @@ class Colors:
 
 C = Colors
 
+def apply_theme(theme: str) -> None:
+    """Apply a UI theme by adjusting semantic colors (and optionally disabling color)."""
+    t = (theme or "dark").strip().lower()
+    if t == "mono":
+        Colors.disable()
+        return
+    if not Colors.supports_color():
+        Colors.disable()
+        return
+    if t == "matrix":
+        Colors.TEXT = Colors.BRIGHT_GREEN
+        Colors.MUTED = Colors.GREEN
+        Colors.ACCENT = Colors.BRIGHT_GREEN
+        Colors.SUCCESS = Colors.BRIGHT_GREEN
+        Colors.WARNING = Colors.BRIGHT_YELLOW
+        Colors.ERROR = Colors.BRIGHT_RED
+        Colors.TOOL_NAME = Colors.BRIGHT_GREEN
+        Colors.THINKING = Colors.BRIGHT_GREEN
+        Colors.LINK = Colors.BRIGHT_GREEN
+    else:
+        # dark (default): keep existing semantic mapping
+        Colors.TEXT = Colors.BRIGHT_WHITE
+        Colors.MUTED = Colors.BRIGHT_BLACK
+        Colors.ACCENT = Colors.BRIGHT_CYAN
+        Colors.SUCCESS = Colors.BRIGHT_GREEN
+        Colors.WARNING = Colors.BRIGHT_YELLOW
+        Colors.ERROR = Colors.BRIGHT_RED
+        Colors.TOOL_NAME = Colors.BRIGHT_BLUE
+        Colors.THINKING = Colors.BRIGHT_MAGENTA
+        Colors.LINK = Colors.BRIGHT_CYAN
+
+
+def _short_model(model: str) -> str:
+    m = (model or "").strip()
+    if not m:
+        return ""
+    return m.split("/")[-1]
+
+
+def build_prompt(*, cwd: str, model: str, yolo: bool) -> str:
+    """Build a compact geek prompt."""
+    base = os.path.basename(os.path.abspath(cwd or ".")) or "."
+    ms = _short_model(model) or "model"
+    y = f"{C.WARNING}!{C.RESET}" if yolo and C.WARNING else "!"
+    yolo_tag = f" {y}" if yolo else ""
+    return f"{C.DIM}cc-agent{C.RESET} {C.ACCENT}{base}{C.RESET} {C.DIM}{ms}{C.RESET}{yolo_tag} {C.BOLD}{C.ACCENT}>{C.RESET} "
+
 
 # ── Terminal Dimensions ──────────────────────────────────────────────────
 
@@ -424,7 +471,13 @@ class ToolPanel:
             icon = f"{C.SUCCESS}{_GLYPHS['check']}{C.RESET}"
             label = f"{C.SUCCESS}OK{C.RESET}"
 
-        preview = result.replace("\n", " ")[:preview_chars] if result else ""
+        if not result:
+            preview = ""
+        elif is_error:
+            lines = [ln for ln in result.splitlines() if ln.strip()][:12]
+            preview = " | ".join(lines)[: max(preview_chars, 240)]
+        else:
+            preview = result.replace("\n", " ")[:preview_chars]
         return (
             f"  {C.DIM}{_GLYPHS['corner']}{_GLYPHS['hline'] * 2}{C.RESET} "
             f"{icon} {label}  "
@@ -508,7 +561,8 @@ class ContextBar:
     @staticmethod
     def render(used_tokens: int, total_tokens: int, model: str = "",
                input_tokens: int = 0, output_tokens: int = 0,
-               session_id: str = "", message_count: int = 0) -> str:
+               session_id: str = "", message_count: int = 0,
+               yolo: bool = False) -> str:
         pct = (used_tokens / total_tokens * 100) if total_tokens > 0 else 0
         bar_len = 30
         filled = int(bar_len * min(pct, 100) / 100)
@@ -530,10 +584,10 @@ class ContextBar:
         else:
             bar = f"{C.DIM}{_GLYPHS['shade'] * bar_len}{C.RESET}"
 
+        m = _short_model(model)
         parts = [
-            f"  {C.ACCENT}┃{C.RESET} {C.BOLD}{model}{C.RESET}  "
-            if model else "",
-            f"[{bar}] {pct:.0f}%",
+            f"{C.ACCENT}{m}{C.RESET}" if m else "",
+            f"{C.DIM}ctx{C.RESET}[{bar}] {pct:.0f}%",
             f"{C.DIM}{used_tokens:,}/{total_tokens:,}{C.RESET}",
         ]
         if input_tokens or output_tokens:
@@ -542,6 +596,8 @@ class ContextBar:
             parts.append(f"{C.DIM}msgs:{message_count}{C.RESET}")
         if session_id:
             parts.append(f"{C.DIM}{_GLYPHS['link']} {session_id[:8]}{C.RESET}")
+        if yolo:
+            parts.append(f"{C.WARNING}!YOLO{C.RESET}" if C.WARNING else "!YOLO")
 
         return "  ".join(p for p in parts if p)
 
@@ -571,22 +627,22 @@ _CC_LOGO_COMPACT = r"""
 """
 
 _GLYPHS = {
-    "arrow":    "➜",
-    "bullet":   "●",
-    "diamond":  "◆",
-    "check":    "✔",
-    "cross":    "✘",
-    "warn":     "⚠",
-    "gear":     "⚙",
-    "bolt":     "⚡",
-    "link":     "🔗",
-    "lock":     "🔒",
-    "rocket":   "🚀",
-    "terminal": "▶",
-    "think":    "🧠",
-    "save":     "💾",
-    "tool":     "🛠",
-    "fire":     "🔥",
+    "arrow":    "->",
+    "bullet":   "*",
+    "diamond":  "#",
+    "check":    "OK",
+    "cross":    "X",
+    "warn":     "!",
+    "gear":     "@",
+    "bolt":     "!",
+    "link":     "~",
+    "lock":     "#",
+    "rocket":   "^",
+    "terminal": ">",
+    "think":    "?",
+    "save":     "S",
+    "tool":     "T",
+    "fire":     "*",
     "star":     "✦",
     "dot":      "•",
     "pipe":     "│",

@@ -26,6 +26,7 @@ from typing import Any
 # ── Rich Terminal UI ────────────────────────────────────────────────────
 from .terminal_ui import (
     C, Banner, ContextBar, ThinkingPanel, ToolPanel, MarkdownRenderer, _GLYPHS,
+    apply_theme, build_prompt,
     render_markdown as _render_md,
 )
 
@@ -97,6 +98,8 @@ def run_chat(
 
     init_user_config()
 
+    apply_theme(getattr(cfg, "ui_theme", "dark"))
+
     client = _get_provider(cfg.model)
     current_model = cfg.model
     context_window = get_context_window(cfg.model)
@@ -148,7 +151,7 @@ def run_chat(
     )
 
     # ── Banner ──────────────────────────────────────────────────────────
-    if not print_mode:
+    if not print_mode and getattr(cfg, "ui_show_banner", True):
         mcp_info = ""
         if mcp_tool_classes:
             mcp_info = f"{C.SUCCESS}MCP: {len(mcp_tool_classes)} tools from {len(mcp_manager._clients)} server(s){C.RESET}"
@@ -279,11 +282,12 @@ def run_chat(
         messages = loop._messages
 
         # ── Post-turn status bar ────────────────────────────────────────
-        if not print_mode and cfg.show_cost:
+        if not print_mode and cfg.show_cost and getattr(cfg, "ui_show_hud", True):
             est = estimate_tokens(messages, current_model)
             bar = ContextBar.render(est, context_window, model=current_model,
                                     input_tokens=total_in, output_tokens=total_out,
-                                    session_id=sess.session_id, message_count=len(messages))
+                                    session_id=sess.session_id, message_count=len(messages),
+                                    yolo=cfg.yolo)
             print(f"\n  {bar}")
             cost_per_mtok = 0.003
             cost_usd = (total_in + total_out) / 1_000_000 * cost_per_mtok
@@ -303,7 +307,8 @@ def run_chat(
     # ── Interactive REPL ────────────────────────────────────────────────
     while True:
         try:
-            user_input = input(f"{C.BOLD}{C.ACCENT}>{C.RESET} ").strip()
+            prompt_str = build_prompt(cwd=str(Path(cwd or ".").resolve()), model=current_model, yolo=cfg.yolo)
+            user_input = input(prompt_str).strip()
         except (EOFError, KeyboardInterrupt):
             print(f"\n{C.DIM}Bye!{C.RESET}")
             _save_session()
@@ -346,7 +351,8 @@ def run_chat(
                 est = estimate_tokens(messages, current_model)
                 bar = ContextBar.render(est, context_window, model=current_model,
                                         input_tokens=total_in, output_tokens=total_out,
-                                        session_id=sess.session_id, message_count=len(messages))
+                                        session_id=sess.session_id, message_count=len(messages),
+                                        yolo=cfg.yolo)
                 print(f"  {bar}")
                 continue
 
@@ -374,7 +380,7 @@ def run_chat(
             elif cmd == "/yolo":
                 perms.yolo_mode = not perms.yolo_mode
                 cfg.yolo = perms.yolo_mode
-                state = f"{C.WARNING}ON{C.RESET}" if perms.yolo_mode else f"{C.SUCCESS}OFF{C.RESET}"
+                state = f"{C.WARNING}{_GLYPHS['bolt']} ON{C.RESET}" if perms.yolo_mode else f"{C.SUCCESS}OFF{C.RESET}"
                 print(f"  YOLO mode: {state}")
                 continue
 

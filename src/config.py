@@ -61,6 +61,11 @@ class Config:
     show_cost: bool = True               # show estimated cost per turn
     tool_result_preview_chars: int = 120 # chars of tool output to preview
 
+    # ── UI ─────────────────────────────────────────────────────────────
+    ui_theme: str = "dark"               # dark | mono | matrix
+    ui_show_banner: bool = True
+    ui_show_hud: bool = True
+
     # ── Sessions ───────────────────────────────────────────────────────
     auto_save_session: bool = True       # save session after each turn
 
