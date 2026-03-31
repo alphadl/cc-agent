@@ -530,15 +530,19 @@ class ToolPanel:
 class ThinkingPanel:
     """Renders thinking/reasoning output with animated indicator."""
 
-    _spinner = Spinner("dots")
+    _spinner = None  # Spinner is defined later in this module
 
     @staticmethod
     def start() -> str:
+        if ThinkingPanel._spinner is None:
+            ThinkingPanel._spinner = Spinner("dots")
         return f"\n  {C.THINKING}{_GLYPHS['think']} Thinking{C.RESET}{' ' * 20}"
 
     @staticmethod
     def progress() -> str:
         """Return animated progress frame (to be used with \r)."""
+        if ThinkingPanel._spinner is None:
+            ThinkingPanel._spinner = Spinner("dots")
         frame = ThinkingPanel._spinner.tick()
         return f"\r  {C.THINKING}{frame} Thinking{C.DIM}⋯{C.RESET}   "
 
@@ -546,6 +550,8 @@ class ThinkingPanel:
     def done(thinking_text: str) -> str:
         char_count = len(thinking_text)
         word_count = len(thinking_text.split())
+        if ThinkingPanel._spinner is None:
+            ThinkingPanel._spinner = Spinner("dots")
         ThinkingPanel._spinner.reset()
         return (
             f"\r\033[K  {C.THINKING}{_GLYPHS['think']} Thought{C.RESET} "
