@@ -114,9 +114,13 @@ class AnthropicProvider:
         try:
             return self._client.messages.stream(**kwargs)
         except TypeError:
-            # Older SDK versions may not accept 'thinking'
+            # Older SDK/proxies may not accept 'thinking' or 'tools'
             kwargs.pop("thinking", None)
-            return self._client.messages.stream(**kwargs)
+            try:
+                return self._client.messages.stream(**kwargs)
+            except TypeError:
+                kwargs.pop("tools", None)
+                return self._client.messages.stream(**kwargs)
 
     def complete(self, *, model: str, system: str, messages: list,
                  max_tokens: int = 2048, thinking_budget: int | None = None) -> str:
