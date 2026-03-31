@@ -1,7 +1,7 @@
 # cc-agent
 
 <p align="center">
-  <strong>Python 原生的 Claude Code 风格 Agent CLI（不只是资料归档）</strong>
+  <strong>Python 原生的 Claude Code 风格 Agent CLI</strong>
 </p>
 
 <p align="center">
