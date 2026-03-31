@@ -135,7 +135,7 @@ def build_prompt(*, cwd: str, model: str, yolo: bool) -> str:
     ms = _short_model(model) or "model"
     y = f"{C.WARNING}!{C.RESET}" if yolo and C.WARNING else "!"
     yolo_tag = f" {y}" if yolo else ""
-    return f"{C.DIM}cc-agent{C.RESET} {C.ACCENT}{base}{C.RESET} {C.DIM}{ms}{C.RESET}{yolo_tag} {C.BOLD}{C.ACCENT}>{C.RESET} "
+    return f"{C.DIM}Liam CC-Agent{C.RESET} {C.ACCENT}{base}{C.RESET} {C.DIM}{ms}{C.RESET}{yolo_tag} {C.BOLD}{C.ACCENT}>{C.RESET} "
 
 
 # ── Terminal Dimensions ──────────────────────────────────────────────────
@@ -617,11 +617,12 @@ _CC_LOGO = r"""
 / /___  / /___   / /_/ / ___ / /_/ /  __/ /_/ / /
 \____/  \____/   \__,_/_/  |_\__, /\___/\__,_/_/
                              /____/
+                         Liam CC-Agent
 """
 
 # Compact fallback logo for narrow terminals
 _CC_LOGO_COMPACT = r"""
-  CC-Agent
+  Liam CC-Agent
 """
 
 _GLYPHS = {
